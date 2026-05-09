@@ -17,6 +17,15 @@ import { extname } from 'path';
 import { AuthGuard } from '@nestjs/passport';
 import { ReportsService } from './reports.service';
 import { Status } from '@prisma/client';
+import { Request as ExpressRequest } from 'express';
+
+interface AuthenticatedRequest extends ExpressRequest {
+  user: {
+    id: number;
+    email: string;
+    role: string;
+  };
+}
 
 @Controller('reports')
 export class ReportsController {
@@ -37,7 +46,7 @@ export class ReportsController {
     }),
   )
   async create(
-    @Request() req,
+    @Request() req: AuthenticatedRequest,
     @Body()
     body: {
       title: string;
@@ -63,6 +72,13 @@ export class ReportsController {
     return this.reportsService.findAll();
   }
 
+  // Signalements d'un citoyen (doit être avant @Get(':id'))
+  @UseGuards(AuthGuard('jwt'))
+  @Get('user/me')
+  findMyReports(@Request() req: AuthenticatedRequest) {
+    return this.reportsService.findByUser(req.user.id);
+  }
+
   // Un seul signalement
   @Get(':id')
   findOne(@Param('id', ParseIntPipe) id: number) {
@@ -77,12 +93,5 @@ export class ReportsController {
     @Body() body: { status: Status },
   ) {
     return this.reportsService.updateStatus(id, body.status);
-  }
-
-  // Signalements d'un citoyen
-  @UseGuards(AuthGuard('jwt'))
-  @Get('user/me')
-  findMyReports(@Request() req) {
-    return this.reportsService.findByUser(req.user.id);
   }
 }
